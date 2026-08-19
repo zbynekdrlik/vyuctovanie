@@ -8,7 +8,7 @@ def decide(msgs, now_local, force_info=False):
     """Z obohatených správ rozhodne, čo poslať.
 
     Vráti zoznam akcií: [('settlement', total_h, od, do, items)] alebo
-    [('info', total_h)]. items = [(dátum, autor, hodiny, popis), ...].
+    [('info', total_h, items)]. items = [(dátum, autor, hodiny, popis), ...].
     """
     uzs = [m for m in msgs if m['uz']]
     last_uz = uzs[-1] if uzs else None
@@ -28,11 +28,14 @@ def decide(msgs, now_local, force_info=False):
 
     # 2) Večerné priebežné info — max 1× denne, len ak pribudli nové hodiny.
     period_start = last_uz['id'] if last_uz else 0
-    total = sum(m['hours'] for m in msgs if m['id'] > period_start)
+    period = [m for m in msgs if m['id'] > period_start]
+    total = sum(m['hours'] for m in period)
+    items = [(m['date'], m['author'], h, d)
+             for m in period for h, d in m['entries']]
 
     if force_info:
         if total > 0:
-            return [('info', total)]
+            return [('info', total, items)]
         log.info('force-info: žiadne hodiny od poslednej uzávierky — nič na poslanie.')
         return []
 
@@ -43,7 +46,7 @@ def decide(msgs, now_local, force_info=False):
     new_hours = any(m['hours'] > 0 and m['id'] > baseline for m in msgs)
 
     if in_window and not already_today and new_hours and total > 0:
-        return [('info', total)]
+        return [('info', total, items)]
     log.info('info sa neposiela: večerné okno=%s, dnes už bolo=%s, nové hodiny=%s, súčet=%s h',
              in_window, already_today, new_hours, total)
     return []

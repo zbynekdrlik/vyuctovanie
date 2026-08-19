@@ -1,7 +1,7 @@
 """Formátovanie správ."""
 import html
 
-from .config import RATE_EUR, SETTLEMENT_MARK, INFO_MARK
+from .config import SETTLEMENT_MARK, INFO_MARK, rate_for
 
 
 def fmt_num(x):
@@ -16,11 +16,12 @@ def _entry(date, hours, desc):
 
 
 def _person_block(author, entries):
-    """Blok jedného človeka: medzisúčet v h aj € + zoznam jeho položiek."""
+    """Blok jedného človeka: medzisúčet v h aj € (jeho sadzbou) + zoznam položiek."""
     subtotal = sum(h for _, h, _ in entries)
+    rate = rate_for(author)
     rows = ''.join(_entry(*e) for e in entries)
-    return (f'<p><b>{html.escape(author)}</b> — {fmt_num(subtotal)} h'
-            f' = <b>{fmt_num(subtotal * RATE_EUR)} €</b></p>'
+    return (f'<p><b>{html.escape(author)}</b> — {fmt_num(subtotal)} h × {fmt_num(rate)} €/h'
+            f' = <b>{fmt_num(subtotal * rate)} €</b></p>'
             f'<ul>{rows}</ul>')
 
 
@@ -32,13 +33,20 @@ def render(action):
         for date, author, hours, desc in items:
             by_author.setdefault(author, []).append((date, hours, desc))
         blocks = ''.join(_person_block(a, e) for a, e in by_author.items())
+        eur = sum(sum(h for _, h, _ in e) * rate_for(a) for a, e in by_author.items())
         return (f'<p><b>💰 {SETTLEMENT_MARK}</b> — obdobie {od:%d.%m.%Y} → {do:%d.%m.%Y}</p>'
                 f'{blocks}'
-                f'<p>Spolu odrobené: <b>{fmt_num(total)} h</b> = <b>{fmt_num(total * RATE_EUR)} €</b>'
-                f' (sadzba {fmt_num(RATE_EUR)} €/h)</p>'
+                f'<p>Spolu odrobené: <b>{fmt_num(total)} h</b> = <b>{fmt_num(eur)} €</b></p>'
                 f'<p>Počítadlo začína odznova — rátajú sa správy za uzávierkou.</p>')
-    _, total = action
-    eur = total * RATE_EUR
+    _, total, items = action
+    per = {}  # autor → hodiny, v poradí prvého výskytu
+    for _, author, h, _ in items:
+        per[author] = per.get(author, 0.0) + h
+    eur = sum(h * rate_for(a) for a, h in per.items())
+    detail = ''
+    if len(per) > 1:
+        detail = ' (' + '; '.join(
+            f'{html.escape(a)} {fmt_num(h)} h = {fmt_num(h * rate_for(a))} €'
+            for a, h in per.items()) + ')'
     return (f'<p><b>ℹ️ {INFO_MARK}</b> — od poslednej uzávierky odrobené:'
-            f' <b>{fmt_num(total)} h</b> = <b>{fmt_num(eur)} €</b>'
-            f' (sadzba {fmt_num(RATE_EUR)} €/h)</p>')
+            f' <b>{fmt_num(total)} h</b> = <b>{fmt_num(eur)} €</b>{detail}</p>')

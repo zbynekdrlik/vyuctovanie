@@ -14,7 +14,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install pytest pytest-cov
-      - run: python -m pytest tests/ -v --cov=vyuct --cov-fail-under=71
+      - run: python -m pytest tests/ -v --cov=vyuct --cov-fail-under=74
 
   version-check:
     if: github.event_name == 'pull_request'
