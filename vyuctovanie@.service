@@ -1,0 +1,9 @@
+[Unit]
+Description=Vyuctovanie hodin z Odoo Discuss - zakaznik %i
+OnFailure=vyuctovanie-fail@%i.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/vyuct/%i.env
+ExecStart=/usr/bin/python3 %h/devel/vyuctovanie/vyuctovanie.py
+TimeoutStartSec=300

@@ -1,0 +1,6 @@
+[Unit]
+Description=Alert pri zlyhani vyuctovanie@%i
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/devel/airuleset/airuleset.py notify --body "vyuctovanie@%i zlyhalo — pozri: journalctl --user -u vyuctovanie@%i.service"

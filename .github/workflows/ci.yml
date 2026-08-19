@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [master, dev]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pytest pytest-cov
+      - run: python -m pytest tests/ -v --cov=vyuct --cov-fail-under=71
+
+  version-check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: dev version must be greater than base version
+        run: |
+          set -euo pipefail
+          base=$(git show "origin/${GITHUB_BASE_REF}:vyuct/__init__.py" 2>/dev/null | sed -n "s/^__version__ = '\(.*\)'$/\1/p")
+          base=${base:-0.0.0}
+          head=$(sed -n "s/^__version__ = '\(.*\)'$/\1/p" vyuct/__init__.py)
+          echo "base=$base head=$head"
+          python3 -c "import sys; b=tuple(map(int,sys.argv[1].split('.'))); h=tuple(map(int,sys.argv[2].split('.'))); sys.exit(0 if h>b else 1)" "$base" "$head"
