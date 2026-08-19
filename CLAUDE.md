@@ -5,7 +5,7 @@ kanál výkazov daného zákazníka, extrahuje hodiny zo správ (`- 4h`, `- 1,5h
 `- 3 hodiny`) a posiela do toho istého kanála:
 
 - **VYÚČTOVANIE** hneď po správe „uzavierka" (rozpis podľa ľudí — položky + medzisúčet v h aj € na osobu — a celkový súčet od predošlej uzávierky; potom sa počíta od nuly)
-- **Priebežné info** večer 20:00–23:59, max 1× denne, len ak pribudli nové hodiny — súčet od poslednej uzávierky, sadzba podľa `VYUCT_RATE_EUR`
+- **Priebežné info** večer 20:00–23:59, max 1× denne, len ak pribudli nové hodiny — súčet od poslednej uzávierky, sadzba podľa `VYUCT_RATE_EUR`/`VYUCT_RATES`
 
 Stav sa neodkladá lokálne — odvodzuje sa z histórie kanála (idempotentné behy).
 
@@ -24,7 +24,8 @@ takže fix v kóde platí okamžite pre všetkých.
 
 - Config zákazníka: `~/.config/vyuct/<meno>.env` (systemd `EnvironmentFile`, MIMO git):
   `ODOO_URL`, `ODOO_DB`, `ODOO_KEY_FILE` (absolútna cesta, mode 600), `ODOO_BOT_LOGIN`,
-  `VYUCT_CHANNEL_ID`, `VYUCT_RATE_EUR`
+  `VYUCT_CHANNEL_ID`, `VYUCT_RATE_EUR`, voliteľné VYUCT_RATES („Meno=15;Iné Meno=40“ —
+  sadzba per osoba, má prednosť pred VYUCT_RATE_EUR)
 - Nový zákazník: (1) v jeho Odoo vytvor bot používateľa + API kľúč a pozvi bota do
   kanála výkazov; (2) kľúč ulož do súboru (mode 600) a vytvor `~/.config/vyuct/<meno>.env`;
   (3) `systemctl --user enable --now vyuctovanie@<meno>.timer`

@@ -22,7 +22,10 @@ def ts(h=20, m=5, d=17):
 
 def test_info_evening():
     msgs = enrich([mk(1, '- 4h praca'), mk(2, '- 2h ine', ZBYNEK)], BOT)
-    assert decide(msgs, ts(20, 5)) == [('info', 6)]
+    actions = decide(msgs, ts(20, 5))
+    assert len(actions) == 1
+    assert actions[0][0] == 'info'
+    assert actions[0][1] == 6
 
 
 def test_info_not_before_20():
@@ -53,7 +56,10 @@ def test_info_new_hours_after_bot_reports_full_period_total():
         mk(2, '<p>ℹ️ Priebežné info: 4 h</p>', [BOT, 'Automatizacie'], '2026-08-16 18:00:00'),
         mk(3, '- 2h dalsia praca', ZBYNEK, '2026-08-17 09:00:00'),
     ], BOT)
-    assert decide(msgs, ts(20, 5)) == [('info', 6)]
+    actions = decide(msgs, ts(20, 5))
+    assert len(actions) == 1
+    assert actions[0][0] == 'info'
+    assert actions[0][1] == 6
 
 
 def test_settlement_on_uzavierka():
@@ -80,7 +86,10 @@ def test_period_resets_after_uzavierka():
         mk(3, '<p>💰 VYÚČTOVANIE — obdobie</p>', [BOT, 'Automatizacie']),
         mk(4, '- 2h nova praca'),
     ], BOT)
-    assert decide(msgs, ts(20, 5)) == [('info', 2)]
+    actions = decide(msgs, ts(20, 5))
+    assert len(actions) == 1
+    assert actions[0][0] == 'info'
+    assert actions[0][1] == 2
 
 
 def test_second_settlement_counts_only_since_previous():
@@ -104,7 +113,10 @@ def test_bot_messages_never_counted_as_hours():
 
 def test_force_info_ignores_window():
     msgs = enrich([mk(1, '- 4h praca')], BOT)
-    assert decide(msgs, ts(10, 0), force_info=True) == [('info', 4)]
+    actions = decide(msgs, ts(10, 0), force_info=True)
+    assert len(actions) == 1
+    assert actions[0][0] == 'info'
+    assert actions[0][1] == 4
 
 
 def test_force_info_zero_hours_sends_nothing():
@@ -165,7 +177,8 @@ def test_double_uzavierka_settled_once():
 def test_decide_logs_reason_when_no_info(caplog):
     tz = ZoneInfo('Europe/Bratislava')
     msgs = [{'id': 1, 'uz': False, 'settlement': False, 'info': False,
-             'hours': 2.0, 'is_bot': False,
+             'hours': 2.0, 'is_bot': False, 'author': 'Ján Novák',
+             'entries': [(2.0, '')],
              'date': datetime(2026, 8, 19, 10, 0, tzinfo=tz)}]
     with caplog.at_level(logging.INFO, logger='vyuctovanie'):
         actions = decide(msgs, datetime(2026, 8, 19, 10, 0, tzinfo=tz))
