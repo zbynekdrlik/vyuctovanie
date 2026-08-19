@@ -33,7 +33,8 @@ takže fix v kóde platí okamžite pre všetkých.
   `~/.config/systemd/user/`, potom `systemctl --user daemon-reload`
 - Logy: `journalctl --user -u vyuctovanie@<meno>.service`
 - Manuálny beh: `set -a; . ~/.config/vyuct/<meno>.env; set +a; python3 vyuctovanie.py`
-  s voľbami `--dry-run` (nič nepošle), `--force-info` (pošle info hneď), `--channel N`
+  s voľbami `--dry-run` (nič nepošle), `--force-info` (pošle info hneď), `--channel N`;
+  hodnoty s medzerami v env súbore (napr. `VYUCT_RATES`) daj do úvodzoviek
 - Lock je per-inštancia (host+kanál) — zákazníci sa navzájom neblokujú
 
 ## Git & deploy
