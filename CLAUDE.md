@@ -37,7 +37,7 @@ takže fix v kóde platí okamžite pre všetkých.
 
 ## Git & deploy
 
-- Repo: github.com/zbynekdrlik/vyuctovanie (private). Vetvy: `master` (prod) + `dev`.
+- Repo: github.com/zbynekdrlik/vyuctovanie (verejné — žiadne zákaznícke údaje do repa!). Vetvy: `master` (prod) + `dev`.
 - Checkout `~/devel/vyuctovanie` je PROD — timer beží z neho, musí stáť na
   `master`. Vývoj rob vo worktree `~/devel/vyuctovanie-dev` (branch `dev`),
   PR dev→master, po merge v prod checkoute `git pull` (= deploy pre všetkých naraz).
