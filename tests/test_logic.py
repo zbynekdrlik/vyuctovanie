@@ -62,6 +62,15 @@ def test_info_new_hours_after_bot_reports_full_period_total():
     assert actions[0][1] == 6
 
 
+def test_info_only_at_20_not_later_evening():
+    # Info smie ísť len o 20:00 (okno 20:00–20:59). Nové hodiny, dnes ešte nič
+    # nešlo — a predsa sa po 21:00 NEMÁ poslať nič (hodiny idú do infa až
+    # nasledujúci deň o 20:00). Vlastnícke rozhodnutie 2026-08-20, ticket #4.
+    for h, m in [(21, 0), (22, 30), (23, 40)]:
+        msgs = enrich([mk(1, '- 4h praca')], BOT)
+        assert decide(msgs, ts(h, m)) == [], f'info nemá ísť o {h:02d}:{m:02d}'
+
+
 def test_settlement_on_uzavierka():
     msgs = enrich([mk(1, '- 4h praca'), mk(2, 'uzavierka', ZBYNEK)], BOT)
     actions = decide(msgs, ts(10, 0))
