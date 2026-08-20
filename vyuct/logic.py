@@ -39,7 +39,10 @@ def decide(msgs, now_local, force_info=False):
         log.info('force-info: žiadne hodiny od poslednej uzávierky — nič na poslanie.')
         return []
 
-    in_window = 20 <= now_local.hour <= 23
+    # Len o 20:00 (okno 20:00–20:59) — tolerancia na 10-min takt timera a krátky
+    # výpadok behu presne o 20:00. Hodiny zapísané po 20:59 idú do infa až
+    # nasledujúci deň o 20:00. (Vlastnícke rozhodnutie 2026-08-20, ticket #4.)
+    in_window = now_local.hour == 20
     already_today = any(m['info'] and m['date'].date() == now_local.date() for m in msgs)
     bot_ids = [m['id'] for m in msgs if m['is_bot']]
     baseline = max(bot_ids + [period_start])
