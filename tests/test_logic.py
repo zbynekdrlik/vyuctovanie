@@ -71,6 +71,15 @@ def test_info_only_at_20_not_later_evening():
         assert decide(msgs, ts(h, m)) == [], f'info nemá ísť o {h:02d}:{m:02d}'
 
 
+def test_info_at_2059_still_in_window():
+    # Horná hrana okna: o 20:59 sa info ešte pošle (o 21:00 už nie — vyššie).
+    msgs = enrich([mk(1, '- 4h praca')], BOT)
+    actions = decide(msgs, ts(20, 59))
+    assert len(actions) == 1
+    assert actions[0][0] == 'info'
+    assert actions[0][1] == 4
+
+
 def test_settlement_on_uzavierka():
     msgs = enrich([mk(1, '- 4h praca'), mk(2, 'uzavierka', ZBYNEK)], BOT)
     actions = decide(msgs, ts(10, 0))
