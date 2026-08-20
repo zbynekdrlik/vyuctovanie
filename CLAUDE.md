@@ -5,7 +5,7 @@ kanál výkazov daného zákazníka, extrahuje hodiny zo správ (`- 4h`, `- 1,5h
 `- 3 hodiny`) a posiela do toho istého kanála:
 
 - **VYÚČTOVANIE** hneď po správe „uzavierka" (rozpis podľa ľudí — položky + medzisúčet v h aj € na osobu — a celkový súčet od predošlej uzávierky; potom sa počíta od nuly)
-- **Priebežné info** večer 20:00–23:59, max 1× denne, len ak pribudli nové hodiny — súčet od poslednej uzávierky, sadzba podľa `VYUCT_RATE_EUR`/`VYUCT_RATES`
+- **Priebežné info** o 20:00 (okno 20:00–20:59; hodiny zapísané po 20:00 idú do info nasledujúci deň), max 1× denne, len ak pribudli nové hodiny — súčet od poslednej uzávierky, sadzba podľa `VYUCT_RATE_EUR`/`VYUCT_RATES`
 
 Stav sa neodkladá lokálne — odvodzuje sa z histórie kanála (idempotentné behy).
 

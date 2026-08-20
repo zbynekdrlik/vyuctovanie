@@ -6,8 +6,9 @@ a posiela do TOHO ISTÉHO kanála:
 
   * VYÚČTOVANIE — hneď po správe „uzavierka": súčet hodín od predošlej uzávierky.
     Od tej chvíle sa počíta odznova (rátajú sa len správy za uzávierkou).
-  * Priebežné info — každý večer (20:00–23:59), ak od posledného reportu pribudli
-    nové hodiny: priebežný súčet od poslednej uzávierky. Max 1× denne.
+  * Priebežné info — o 20:00 (okno 20:00–20:59; hodiny zapísané po 20:59 idú do
+    infa nasledujúci deň), ak od posledného reportu pribudli nové hodiny:
+    priebežný súčet od poslednej uzávierky. Max 1× denne.
 
 Stav sa NEuchováva lokálne — všetko sa odvodzuje z histórie kanála (posledná
 uzávierka + posledné správy bota), takže behy sú idempotentné a nič sa nezdvojí.
