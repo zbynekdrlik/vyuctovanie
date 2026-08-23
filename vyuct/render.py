@@ -16,12 +16,14 @@ def _entry(date, hours, desc):
 
 
 def _person_block(author, entries):
-    """Blok jedného človeka: medzisúčet v h aj € (jeho sadzbou) + zoznam položiek."""
+    """Blok jedného človeka: medzisúčet LEN v hodinách + zoznam položiek.
+
+    Pri osobe sa sadzba ani € nezobrazuje (variant A, #7); celkové € sa ráta
+    len v celkovom súčte cez ``rate_for`` v :func:`render`.
+    """
     subtotal = sum(h for _, h, _ in entries)
-    rate = rate_for(author)
     rows = ''.join(_entry(*e) for e in entries)
-    return (f'<p><b>{html.escape(author)}</b> — {fmt_num(subtotal)} h × {fmt_num(rate)} €/h'
-            f' = <b>{fmt_num(subtotal * rate)} €</b></p>'
+    return (f'<p><b>{html.escape(author)}</b> — {fmt_num(subtotal)} h</p>'
             f'<ul>{rows}</ul>')
 
 
@@ -46,7 +48,7 @@ def render(action):
     detail = ''
     if len(per) > 1:
         detail = ' (' + '; '.join(
-            f'{html.escape(a)} {fmt_num(h)} h = {fmt_num(h * rate_for(a))} €'
+            f'{html.escape(a)} {fmt_num(h)} h'
             for a, h in per.items()) + ')'
     return (f'<p><b>ℹ️ {INFO_MARK}</b> — od poslednej uzávierky odrobené:'
             f' <b>{fmt_num(total)} h</b> = <b>{fmt_num(eur)} €</b>{detail}</p>')
