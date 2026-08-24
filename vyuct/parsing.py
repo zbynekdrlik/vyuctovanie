@@ -32,6 +32,27 @@ def parse_hours(text):
     return sum(h for h, _ in parse_entries(text))
 
 
+_NAME_PUNCT = frozenset("-.'")
+
+
+def _looks_like_name(s):
+    """``True`` ak ``s`` je HOLÉ MENO: 1–3 slová oddelené medzerami, každé
+    slovo aspoň s jedným unicode písmenom a zložené LEN z písmen + ``-`` ``.``
+    ``'`` (napr. ``Zora``, ``Anna-Mária``, ``Ján Novák ml.``).
+
+    Sprísnenie #11: čokoľvek s číslicou, „—" medzi slovami, > 3 slovami či
+    inou interpunkciou (nadpisový riadok „Prepis výkazu z aplikácie — Meno")
+    → ``False``.
+    """
+    words = s.split()
+    if not 1 <= len(words) <= 3:
+        return False
+    return all(
+        any(ch.isalpha() for ch in w) and all(ch.isalpha() or ch in _NAME_PUNCT for ch in w)
+        for w in words
+    )
+
+
 def parse_person(text):
     """Prefixové meno z prvého neprázdneho riadku „Meno:" (inak ``None``).
 
@@ -39,8 +60,13 @@ def parse_person(text):
     zapisovateľ dá na prvý neprázdny riadok „Meno:" a všetky položky správy
     patria tomuto menu namiesto autora správy. O prefixe rozhoduje IBA prvý
     neprázdny riadok — ak NEmatchuje :data:`HOUR_RE`, má ≤ 40 znakov, nezačína
-    „-" a končí „:", vráti meno (bez koncovej dvojbodky, orezané); inak ``None``
-    (aj keď niektorý neskorší riadok vyzerá ako „Meno:").
+    „-", končí „:" A text pred „:" je HOLÉ MENO (:func:`_looks_like_name` —
+    1–3 slová, len písmená/``-``/``.``/``'``), vráti meno (bez koncovej
+    dvojbodky, orezané); inak ``None`` (aj keď niektorý neskorší riadok
+    vyzerá ako „Meno:").
+
+    Sprísnenie #11: nadpisový riadok „Prepis výkazu z aplikácie — Meno:"
+    (viac slov, „—", číslice) NIE je meno → hodiny idú autorovi správy.
     """
     for line in text.splitlines():
         s = line.strip()
@@ -49,7 +75,8 @@ def parse_person(text):
         # prvý NEPRÁZDNY riadok rozhoduje — buď je to „Meno:", alebo prefix nie je
         if (len(s) <= 40 and s.endswith(':')
                 and not s.startswith('-') and not HOUR_RE.match(line)):
-            return s[:-1].strip() or None   # samotná „:" nie je meno
+            candidate = s[:-1].strip()
+            return candidate if _looks_like_name(candidate) else None
         return None
     return None
 
