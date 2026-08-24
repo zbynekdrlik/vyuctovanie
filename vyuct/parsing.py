@@ -32,6 +32,28 @@ def parse_hours(text):
     return sum(h for h, _ in parse_entries(text))
 
 
+def parse_person(text):
+    """Prefixové meno z prvého neprázdneho riadku „Meno:" (inak ``None``).
+
+    Konvencia pre hodiny odpracované ZA niekoho, kto v kanáli sám nepíše (#9):
+    zapisovateľ dá na prvý neprázdny riadok „Meno:" a všetky položky správy
+    patria tomuto menu namiesto autora správy. O prefixe rozhoduje IBA prvý
+    neprázdny riadok — ak NEmatchuje :data:`HOUR_RE`, má ≤ 40 znakov, nezačína
+    „-" a končí „:", vráti meno (bez koncovej dvojbodky, orezané); inak ``None``
+    (aj keď niektorý neskorší riadok vyzerá ako „Meno:").
+    """
+    for line in text.splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        # prvý NEPRÁZDNY riadok rozhoduje — buď je to „Meno:", alebo prefix nie je
+        if (len(s) <= 40 and s.endswith(':')
+                and not s.startswith('-') and not HOUR_RE.match(line)):
+            return s[:-1].strip()
+        return None
+    return None
+
+
 def is_uzavierka(text):
     """Správa, ktorej celý text je „uzavierka" (bez ohľadu na diakritiku/veľkosť)."""
     norm = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode()
@@ -39,18 +61,26 @@ def is_uzavierka(text):
 
 
 def enrich(messages, bot_partner_id):
-    """Doplní každému message-dictu text, hodiny, položky a klasifikáciu."""
+    """Doplní každému message-dictu text, hodiny, položky a klasifikáciu.
+
+    Pri ne-bot správe s prefixom „Meno:" na prvom riadku (:func:`parse_person`)
+    idú všetky položky pod prefixové meno namiesto autora správy (#9). Bot
+    správy sa neparsujú — nechávajú si meno bota.
+    """
     out = []
     for m in sorted(messages, key=lambda x: x['id']):
         t = to_text(m['body'])
-        author = m['author_id'][0] if m.get('author_id') else None
-        is_bot = author == bot_partner_id
+        author_pid = m['author_id'][0] if m.get('author_id') else None
+        is_bot = author_pid == bot_partner_id
         entries = [] if is_bot else parse_entries(t)
+        author = m['author_id'][1] if m.get('author_id') else '?'
+        if not is_bot:
+            author = parse_person(t) or author
         out.append({
             'id': m['id'],
             'date': datetime.strptime(m['date'], '%Y-%m-%d %H:%M:%S')
                     .replace(tzinfo=timezone.utc).astimezone(TZ),
-            'author': m['author_id'][1] if m.get('author_id') else '?',
+            'author': author,
             'text': t,
             'is_bot': is_bot,
             'hours': sum(h for h, _ in entries),
