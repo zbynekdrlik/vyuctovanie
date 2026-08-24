@@ -49,7 +49,7 @@ def parse_person(text):
         # prvý NEPRÁZDNY riadok rozhoduje — buď je to „Meno:", alebo prefix nie je
         if (len(s) <= 40 and s.endswith(':')
                 and not s.startswith('-') and not HOUR_RE.match(line)):
-            return s[:-1].strip()
+            return s[:-1].strip() or None   # samotná „:" nie je meno
         return None
     return None
 
