@@ -152,7 +152,7 @@ def test_info_bills_under_prefix_name_rate(monkeypatch):
 def test_parse_person_multiword_heading_with_emdash_is_not_name():
     # regresia #11: nadpisový riadok „... — Meno:" NIE je meno → None (hodiny autorovi)
     from vyuct.parsing import parse_person
-    assert parse_person('Prepis výkazu z aplikácie — Oľga:\n- 3h návrh') is None
+    assert parse_person('Prepis výkazu z aplikácie — Zora:\n- 3h návrh') is None
 
 
 def test_parse_person_emdash_between_two_words_is_not_name():
@@ -191,7 +191,7 @@ def test_enrich_heading_prefix_falls_back_to_author():
     # #11: viacslovný nadpis s „—" sa NESMIE stať falošnou osobou —
     # všetky hodiny idú autorovi správy (ako pred #9)
     msgs = enrich([mk(
-        1, '<p>Prepis výkazu z aplikácie — Oľga:</p><p>- 3h návrh</p><p>- 4h montáž</p>',
+        1, '<p>Prepis výkazu z aplikácie — Zora:</p><p>- 3h návrh</p><p>- 4h montáž</p>',
         WRITER)], BOT)
     assert msgs[0]['author'] == 'Ján Novák'   # autor správy, nie nadpis
     assert msgs[0]['hours'] == 7
