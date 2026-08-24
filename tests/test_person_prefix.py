@@ -145,3 +145,53 @@ def test_info_bills_under_prefix_name_rate(monkeypatch):
     body = render(actions[0])
     # sadzba prefixového mena: 6 h @ 20 €/h = 120 € (nie 6 @ 15 = 90)
     assert '6 h' in body and '120 €' in body
+
+
+# ---------- #11: prefix musí byť HOLÉ MENO (1–3 slová), nie nadpisový riadok ----------
+
+def test_parse_person_multiword_heading_with_emdash_is_not_name():
+    # regresia #11: nadpisový riadok „... — Meno:" NIE je meno → None (hodiny autorovi)
+    from vyuct.parsing import parse_person
+    assert parse_person('Prepis výkazu z aplikácie — Zora:\n- 3h návrh') is None
+
+
+def test_parse_person_emdash_between_two_words_is_not_name():
+    # „—" (pomlčka) medzi slovami → nie je meno
+    from vyuct.parsing import parse_person
+    assert parse_person('Meno — Priezvisko:\n- 2h') is None
+
+
+def test_parse_person_line_with_digit_is_not_name():
+    from vyuct.parsing import parse_person
+    assert parse_person('Faktúra 2024:\n- 2h') is None
+
+
+def test_parse_person_more_than_three_words_is_not_name():
+    from vyuct.parsing import parse_person
+    assert parse_person('Toto je dlhší nadpis:\n- 2h') is None
+
+
+def test_parse_person_single_word_name_still_works():
+    # holé jednoslovné meno ostáva menom (feature #9 nesmie prestať fungovať)
+    from vyuct.parsing import parse_person
+    assert parse_person('Zora:\n- 6h') == 'Zora'
+
+
+def test_parse_person_three_word_name_with_dot_still_works():
+    from vyuct.parsing import parse_person
+    assert parse_person('Ján Novák ml.:\n- 6h') == 'Ján Novák ml.'
+
+
+def test_parse_person_apostrophe_name_still_works():
+    from vyuct.parsing import parse_person
+    assert parse_person("O'Brien:\n- 6h") == "O'Brien"
+
+
+def test_enrich_heading_prefix_falls_back_to_author():
+    # #11: viacslovný nadpis s „—" sa NESMIE stať falošnou osobou —
+    # všetky hodiny idú autorovi správy (ako pred #9)
+    msgs = enrich([mk(
+        1, '<p>Prepis výkazu z aplikácie — Zora:</p><p>- 3h návrh</p><p>- 4h montáž</p>',
+        WRITER)], BOT)
+    assert msgs[0]['author'] == 'Ján Novák'   # autor správy, nie nadpis
+    assert msgs[0]['hours'] == 7

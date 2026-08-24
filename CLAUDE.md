@@ -9,10 +9,13 @@ kanál výkazov daného zákazníka, extrahuje hodiny zo správ (`- 4h`, `- 1,5h
 
 Stav sa neodkladá lokálne — odvodzuje sa z histórie kanála (idempotentné behy).
 
-**Hodiny za iného človeka (prefix „Meno:"):** ak je PRVÝ neprázdny riadok správy tvaru
-`Meno:` (krátky text ≤ 40 znakov, nezačína `-`, nie je riadok hodín, končí dvojbodkou),
+**Hodiny za iného človeka (prefix „Meno:"):** ak je PRVÝ neprázdny riadok správy HOLÉ MENO
+zakončené dvojbodkou (≤ 40 znakov, nezačína `-`, nie je riadok hodín, a text pred `:` je
+1–3 slová zložené len z písmen + `-` `.` `'` — napr. `Zora`, `Anna-Mária`, `Ján Novák ml.`),
 všetky položky tej správy sa počítajú pod `Meno` namiesto autora správy — na zápis hodín
-za niekoho, kto v kanáli sám nepíše. Sadzba pre `Meno` sa berie z `VYUCT_RATES` (fallback
+za niekoho, kto v kanáli sám nepíše. Nadpisový riadok s viacerými slovami, „—" alebo číslicami
+(napr. `Prepis výkazu z aplikácie — Meno:`) NIE je meno → hodiny idú autorovi správy (#11).
+Sadzba pre `Meno` sa berie z `VYUCT_RATES` (fallback
 `VYUCT_RATE_EUR`). O prefixe rozhoduje iba prvý neprázdny riadok. Príklad:
 
     Meno:
