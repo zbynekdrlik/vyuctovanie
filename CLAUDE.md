@@ -64,3 +64,4 @@ takže fix v kóde platí okamžite pre všetkých.
 
 - odoo API → `.claude/rules/odoo-api.md` (auto-loads na vyuct/odoo.py, vyuct/config.py)
 - XLSX výkaz → `.claude/rules/xlsx.md` (auto-loads na vyuct/xlsx.py, tests/test_xlsx.py)
+- CI version-check → `.claude/rules/version-check.md` (auto-loads na vyuct/__init__.py, .github/workflows/ci.yml)
