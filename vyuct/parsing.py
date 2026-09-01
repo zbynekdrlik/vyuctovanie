@@ -9,6 +9,8 @@ from .config import TZ, SETTLEMENT_MARK, INFO_MARK
 HOUR_RE = re.compile(r'^\s*-?\s*(\d+(?:[.,]\d+)?)\s*h(?:od(?:in(?:a|y)?|ín)?)?\b',
                      re.MULTILINE | re.IGNORECASE)
 
+BULLET_CHARS = '-–•'
+
 
 def to_text(body):
     """HTML telo správy → čitateľný text so zachovanými riadkami."""
@@ -21,32 +23,45 @@ def parse_entries(text):
 
     Keď hodinový riadok nemá popis na tom istom riadku (napr. holé „- 4h"),
     popis sa doplní z NASLEDUJÚCICH neprázdnych riadkov správy — až po ďalší
-    hodinový riadok alebo koniec správy (#16): každému sa odstráni vedúce
-    „-"/„–" + whitespace, vnútorný whitespace sa skolabuje na jednu medzeru
-    a jednotlivé riadky sa spoja cez „; ". Prázdne riadky sa preskakujú, ale
-    zber neukončujú. Keď hodinový riadok popis MÁ, nasledujúce riadky sa
-    ďalej ignorujú (nezmenené správanie) — continuation vždy patrí
-    najbližšiemu predchádzajúcemu hodinovému riadku bez popisu.
+    hodinový riadok alebo koniec správy (#16). Zber je bullet-aware (#19):
+    riadok začínajúci odrážkou („-"/„–"/„•", po strip) začína NOVÝ fragment
+    (odrážka + whitespace sa odstráni); neprázdny riadok BEZ odrážky je
+    ručne zalomené pokračovanie AKTUÁLNEHO fragmentu — pripojí sa medzerou
+    (vnútorný whitespace sa vždy skolabuje na jednu medzeru). Ak prvý
+    zozbieraný riadok nemá odrážku, začína prvý fragment. Fragmenty sa na
+    záver spoja cez „; ". Prázdne riadky sa preskakujú, ale zber
+    neukončujú. Keď hodinový riadok popis MÁ, nasledujúce riadky sa ďalej
+    ignorujú (nezmenené správanie) — continuation vždy patrí najbližšiemu
+    predchádzajúcemu hodinovému riadku bez popisu.
     """
     out = []
     pending = None  # index poslednej pridanej položky čakajúcej na popis
+    frags = []  # fragmenty (oddelené odrážkami) aktuálne zbieranej položky
     for line in text.splitlines():
         m = HOUR_RE.match(line)
         if m:
             desc = line[m.end():].strip(' \t-–—:;,.')
             out.append([float(m.group(1).replace(',', '.')), desc])
             pending = len(out) - 1 if not desc else None
+            frags = []
             continue
         if pending is None:
             continue
         s = line.strip()
         if not s:
             continue
-        piece = re.sub(r'\s+', ' ', s.lstrip('-–').strip())
-        if not piece:
-            continue
-        existing = out[pending][1]
-        out[pending][1] = f'{existing}; {piece}' if existing else piece
+        if s[0] in BULLET_CHARS:
+            piece = re.sub(r'\s+', ' ', s.lstrip(BULLET_CHARS).strip())
+            if not piece:
+                continue
+            frags.append(piece)
+        else:
+            piece = re.sub(r'\s+', ' ', s)
+            if frags:
+                frags[-1] = f'{frags[-1]} {piece}'
+            else:
+                frags.append(piece)
+        out[pending][1] = '; '.join(frags)
     return [(h, d) for h, d in out]
 
 
