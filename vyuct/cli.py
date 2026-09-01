@@ -3,15 +3,19 @@ import argparse
 import fcntl
 import json
 import logging
+import os
+import tempfile
 from datetime import datetime
 
 from urllib.parse import urlparse
 
-from .config import CHANNEL_ID, TZ, URL, validate
+from .config import CHANNEL_ID, CLIENT_NAME, TZ, URL, validate
 from .parsing import enrich
 from .logic import decide
 from .render import render, fmt_num
-from .odoo import load_key, bot_partner_id, fetch_messages, post_message
+from .xlsx import build_xlsx, xlsx_filename
+from .odoo import (load_key, bot_partner_id, fetch_messages, post_message,
+                   create_attachment)
 
 log = logging.getLogger('vyuctovanie')
 
@@ -62,10 +66,27 @@ def main(argv=None):
 
     for a in actions:
         body = render(a)
+        # XLSX prílohu dostane LEN vyúčtovanie (info nie).
+        xlsx_bytes = fname = None
+        if a[0] == 'settlement':
+            _, _total, od, do, items = a
+            xlsx_bytes = build_xlsx(od, do, items, CLIENT_NAME)
+            fname = xlsx_filename(od, do, CLIENT_NAME)
+            log.info('XLSX vygenerovaný: %s (%d položiek, %d bajtov)',
+                     fname, len(items), len(xlsx_bytes))
         if args.dry_run:
+            if xlsx_bytes:
+                path = os.path.join(tempfile.gettempdir(), fname)
+                with open(path, 'wb') as fh:
+                    fh.write(xlsx_bytes)
+                log.info('DRY-RUN, XLSX uložený do: %s (%d bajtov)', path, len(xlsx_bytes))
             log.info('DRY-RUN, poslal by som: %s', body)
             continue
-        result = post_message(key, args.channel, body)
-        log.info('poslané (%s): %s → odpoveď: %s', a[0], body,
+        attachment_ids = None
+        if xlsx_bytes:
+            attachment_ids = [create_attachment(key, fname, xlsx_bytes)]
+        result = post_message(key, args.channel, body, attachment_ids)
+        log.info('poslané (%s, príloh=%d): %s → odpoveď: %s', a[0],
+                 len(attachment_ids or []), body,
                  json.dumps(result, ensure_ascii=False)[:200])
     return 0

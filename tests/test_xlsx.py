@@ -6,7 +6,6 @@ import datetime as dt
 import io
 
 import openpyxl
-import pytest
 
 from vyuct.xlsx import build_xlsx, xlsx_filename
 

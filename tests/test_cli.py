@@ -30,17 +30,26 @@ def _patch_pipeline(monkeypatch, action):
 
 
 def test_settlement_attaches_xlsx(monkeypatch):
-    from vyuct import cli
-    calls = {}
     action = _settlement_action()
     cli = _patch_pipeline(monkeypatch, action)
-    monkeypatch.setattr(cli, 'build_xlsx',
-                        lambda od, do, items, client: calls.setdefault('build', (od, do, items, client)) or b'XLSXBYTES')
-    monkeypatch.setattr(cli, 'create_attachment',
-                        lambda key, name, data, **kw: calls.setdefault('create', (name, data)) or 4711)
-    monkeypatch.setattr(cli, 'post_message',
-                        lambda key, ch, body, attachment_ids=None: calls.setdefault('post', attachment_ids))
-    rc = cli.main(['--channel', '999'])
+    calls = {}
+
+    def fake_build(od, do, items, client):
+        calls['build'] = (od, do, items, client)
+        return b'XLSXBYTES'
+
+    def fake_create(key, name, data, **kw):
+        calls['create'] = (name, data)
+        return 4711
+
+    def fake_post(key, ch, body, attachment_ids=None):
+        calls['post'] = attachment_ids
+        return {'ok': 1}
+
+    monkeypatch.setattr(cli, 'build_xlsx', fake_build)
+    monkeypatch.setattr(cli, 'create_attachment', fake_create)
+    monkeypatch.setattr(cli, 'post_message', fake_post)
+    rc = cli.main(['--channel', '991'])
     assert rc == 0
     assert calls['build'][2] == action[4]          # items odovzdané do build_xlsx
     assert calls['create'][1] == b'XLSXBYTES'       # bytes idú do prílohy
@@ -49,26 +58,29 @@ def test_settlement_attaches_xlsx(monkeypatch):
 
 def test_dry_run_generates_file_and_does_not_post(monkeypatch, caplog):
     import os
-    from vyuct import cli
-    posted = {'called': False}
     action = _settlement_action()
     cli = _patch_pipeline(monkeypatch, action)
-    monkeypatch.setattr(cli, 'create_attachment',
-                        lambda *a, **k: posted.update(created=True) or 1)
-    monkeypatch.setattr(cli, 'post_message',
-                        lambda *a, **k: posted.update(called=True))
+    flags = {'posted': False, 'created': False}
+
+    def fake_create(*a, **k):
+        flags['created'] = True
+        return 1
+
+    def fake_post(*a, **k):
+        flags['posted'] = True
+
+    monkeypatch.setattr(cli, 'create_attachment', fake_create)
+    monkeypatch.setattr(cli, 'post_message', fake_post)
     caplog.set_level('INFO')
-    rc = cli.main(['--dry-run', '--channel', '999'])
+    rc = cli.main(['--dry-run', '--channel', '992'])
     assert rc == 0
-    assert posted['called'] is False                 # nič sa neposlalo
-    assert 'created' not in posted                    # ani príloha sa nevytvorila
+    assert flags['posted'] is False                  # nič sa neposlalo
+    assert flags['created'] is False                 # ani príloha sa nevytvorila
     # v logu je cesta k vygenerovanému súboru a súbor existuje
-    paths = [r.getMessage() for r in caplog.records if '.xlsx' in r.getMessage()]
-    assert paths, 'dry-run mal zalogovať cestu k .xlsx'
     found = None
-    for msg in paths:
-        for tok in msg.split():
+    for r in caplog.records:
+        for tok in r.getMessage().split():
             if tok.endswith('.xlsx') and os.path.exists(tok):
                 found = tok
-    assert found and os.path.exists(found)
+    assert found, 'dry-run mal vygenerovať a zalogovať cestu k .xlsx'
     os.remove(found)
