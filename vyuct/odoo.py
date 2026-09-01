@@ -1,10 +1,16 @@
 """Odoo JSON-2 API klient."""
+import base64
 import json
+import logging
 import os
 import urllib.error
 import urllib.request
 
 from .config import URL, DB, KEY_FILE, BOT_LOGIN
+
+log = logging.getLogger('vyuctovanie')
+
+XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 
 def api(path, payload, key):
@@ -61,7 +67,29 @@ def fetch_messages(key, channel_id):
         offset += page
 
 
-def post_message(key, channel_id, body_html):
-    return api('discuss.channel/message_post',
-               {'ids': [channel_id], 'body': body_html, 'body_is_html': True,
-                'message_type': 'comment', 'subtype_xmlid': 'mail.mt_comment'}, key)
+def create_attachment(key, name, data, mimetype=XLSX_MIME):
+    """Vytvor ir.attachment z bytov (base64), vráť id novej prílohy.
+
+    JSON-2 `create` berie `vals_list` (pole dictov) a vracia zoznam intov
+    (overené naživo). ``data`` = surové bajty súboru.
+    """
+    res = api('ir.attachment/create',
+              {'vals_list': [{'name': name,
+                              'datas': base64.b64encode(data).decode(),
+                              'mimetype': mimetype}]}, key)
+    att_id = res[0] if isinstance(res, list) else res
+    if isinstance(att_id, dict):  # obrana, keby server vrátil dict
+        att_id = att_id.get('id')
+    log.info('ir.attachment vytvorená: id=%s name=%s bytov=%d mime=%s',
+             att_id, name, len(data), mimetype)
+    return att_id
+
+
+def post_message(key, channel_id, body_html, attachment_ids=None):
+    payload = {'ids': [channel_id], 'body': body_html, 'body_is_html': True,
+               'message_type': 'comment', 'subtype_xmlid': 'mail.mt_comment'}
+    if attachment_ids:
+        payload['attachment_ids'] = attachment_ids
+    log.info('message_post → kanál=%s telo=%dB príloh=%d',
+             channel_id, len(body_html), len(attachment_ids or []))
+    return api('discuss.channel/message_post', payload, key)

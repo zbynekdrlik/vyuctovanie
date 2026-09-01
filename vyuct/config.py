@@ -24,6 +24,7 @@ BOT_LOGIN = os.environ.get('ODOO_BOT_LOGIN', '')
 CHANNEL_ID = int(os.environ.get('VYUCT_CHANNEL_ID', '0'))
 RATE_EUR = float(os.environ.get('VYUCT_RATE_EUR', '0'))
 RATES = _parse_rates(os.environ.get('VYUCT_RATES', ''))
+CLIENT_NAME = os.environ.get('VYUCT_CLIENT_NAME', '') or None
 TZ = ZoneInfo('Europe/Bratislava')
 SETTLEMENT_MARK = 'VYÚČTOVANIE'
 INFO_MARK = 'Priebežné info'
