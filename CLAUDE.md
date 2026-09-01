@@ -63,3 +63,4 @@ takže fix v kóde platí okamžite pre všetkých.
 ## Playbook router
 
 - odoo API → `.claude/rules/odoo-api.md` (auto-loads na vyuct/odoo.py, vyuct/config.py)
+- XLSX výkaz → `.claude/rules/xlsx.md` (auto-loads na vyuct/xlsx.py, tests/test_xlsx.py)
