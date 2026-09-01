@@ -19,3 +19,12 @@ Terse per-ticket record: issue #, commit SHAs, RED→GREEN test names, decisions
 - Decision: track fragments as a list (`frags`) instead of tail-inspecting the accumulated string, since the accumulated text can legitimately contain "; " already
 - PR #20 → master merge `a119918`, all gates green (CI, review 0🔴0🟡0🔵, 109/109 tests)
 - Deployed: prod checkout `~/devel/vyuctovanie` pulled to `a119918`, verified `__version__ == '1.7.2'` + issue's own example now produces the expected space-joined text + pytest 109/109 in prod checkout
+
+## #23 — Obdobie vyúčtovania: názov mesiaca namiesto rozsahu dátumov
+
+- Bump 1.7.4 → 1.8.0: `8b131fe`
+- RED: `e15705e` — 13 new tests (`tests/test_render.py`: `test_period_label_*` ×5, `test_render_settlement_uses_month_label_*`, `test_render_settlement_uses_date_range_*`; `tests/test_xlsx.py`: updated title/sheet assertions + `test_filename_*` ×3), all failing before the fix (import error, then wrong assertions)
+- GREEN: `fbc87af` — `period_label(items, od, do)` in `vyuct/render.py` (+ `_MONTHS_SK` tuple): all item dates same (year, month) → `"<mesiac> <rok>"`, else fallback `od → do` range. Used in `render()` settlement body, `xlsx.build_xlsx` A1 title + sheet name, `xlsx.xlsx_filename`. `xlsx.py` imports from `render.py` (one-directional).
+- Review fixes: `6ce4eb6` (self-review — extracted shared `single_month()` helper instead of string-sniffing the label for the fallback branch), `b1e2c38` (deep-review 🔵×3 — compute `period_label` once in `build_xlsx`, added empty-items sheet/A1 fallback test, added order-independence test for `single_month`)
+- Decision: month decided by item dates, NOT by `od`/`do` boundaries — `do` is the closing date (typically 1st of next month), so the uzávierka→uzávierka range formally always crosses a month boundary; deciding from `od`/`do` was explicitly rejected in the issue itself.
+- PR #TBD → master, 122/122 tests, 100% coverage on render.py + xlsx.py
