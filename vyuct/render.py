@@ -15,6 +15,23 @@ def fmt_num(x):
     return s.replace('.', ',')
 
 
+def single_month(items):
+    """(rok, mesiac) ak VŠETKY ``items`` padnú do jedného kalendárneho mesiaca
+    (rovnaký rok aj mesiac); inak ``None`` (prázdne items alebo viac mesiacov).
+
+    Zdieľané medzi :func:`period_label` a `xlsx.xlsx_filename`, aby obe
+    rozhodovali podľa rovnakej explicitnej podmienky namiesto odvodzovania
+    z tvaru vráteného reťazca.
+    """
+    if not items:
+        return None
+    first = items[0][0]
+    year, month = first.year, first.month
+    if all(date.year == year and date.month == month for date, *_ in items):
+        return year, month
+    return None
+
+
 def period_label(items, od, do):
     """Obdobie vyúčtovania ako čitateľný popisok (#23).
 
@@ -27,11 +44,10 @@ def period_label(items, od, do):
     1. deň nasledujúceho mesiaca (dátum uzávierky), takže rozsah uzávierka→
     uzávierka formálne vždy prechádza cez prelom mesiaca.
     """
-    if items:
-        first = items[0][0]
-        year, month = first.year, first.month
-        if all(date.year == year and date.month == month for date, *_ in items):
-            return f'{_MONTHS_SK[month - 1]} {year}'
+    ym = single_month(items)
+    if ym:
+        year, month = ym
+        return f'{_MONTHS_SK[month - 1]} {year}'
     return f'{od:%d.%m.%Y} → {do:%d.%m.%Y}'
 
 

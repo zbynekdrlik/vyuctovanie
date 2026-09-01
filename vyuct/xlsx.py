@@ -13,7 +13,7 @@ import unicodedata
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
-from .render import period_label
+from .render import period_label, single_month
 
 # Farby ako ARGB (alfa FF) — presne ako vo vzorke vlastníka.
 _TITLE_FILL = PatternFill('solid', fgColor='FF1F4E78')
@@ -61,12 +61,11 @@ def xlsx_filename(od, do, items, client_name):
     ``Vykaz_prace_<od>_<do>[_<Klient>].xlsx``, aby názov súboru ostal chronologicky
     triediteľný aj vo fallback prípade.
     """
-    label = period_label(items, od, do)
-    if ' → ' in label:
+    if single_month(items):
+        base = f'Vykaz_prace_{_ascii_slug(period_label(items, od, do))}'
+    else:
         # fallback tvar (rozsah dátumov) — ISO forma, nie ascii_slug arrow-labelu
         base = f'Vykaz_prace_{od:%Y-%m-%d}_{do:%Y-%m-%d}'
-    else:
-        base = f'Vykaz_prace_{_ascii_slug(label)}'
     if client_name:
         slug = _ascii_slug(client_name)
         if slug:
