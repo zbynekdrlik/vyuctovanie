@@ -31,10 +31,12 @@ def _as_date(v):
 
 
 def test_returns_single_sheet_named_by_period():
+    # ITEMS spadajú všetky do augusta 2026 → hárok pomenovaný mesiacom (#23),
+    # nie rozsahom od/do (do = 01.09., dátum uzávierky nasledujúceho mesiaca).
     wb = _load()
     assert len(wb.sheetnames) == 1
     ws = wb.active
-    assert ws.title == '19.08. – 01.09.2026'
+    assert ws.title == 'august 2026'
     assert len(ws.title) <= 31
 
 
@@ -43,7 +45,8 @@ def test_title_and_client_rows_merged_and_styled():
     assert 'A1:C1' in [str(r) for r in ws.merged_cells.ranges]
     assert 'A2:C2' in [str(r) for r in ws.merged_cells.ranges]
     a1 = ws['A1']
-    assert a1.value == 'Výkaz práce – 19.08.2026 → 01.09.2026'
+    # ITEMS jednomesačné (august 2026) → titulok mesiacom, nie rozsahom (#23)
+    assert a1.value == 'Výkaz práce – august 2026'
     assert a1.font.bold is True
     assert a1.font.size == 14
     assert a1.font.color.rgb == 'FFFFFFFF'
@@ -145,9 +148,27 @@ def test_empty_items_no_crash_total_zero():
 
 
 def test_filename_ascii_safe():
-    assert xlsx_filename(OD, DO, 'Testovací klient') == 'Vykaz_prace_2026-08-19_2026-09-01_Testovaci_klient.xlsx'
-    assert xlsx_filename(OD, DO, None) == 'Vykaz_prace_2026-08-19_2026-09-01.xlsx'
-    assert xlsx_filename(OD, DO, '') == 'Vykaz_prace_2026-08-19_2026-09-01.xlsx'
+    # ITEMS jednomesačné (august 2026) → filename z mesačného labelu (#23)
+    assert xlsx_filename(OD, DO, ITEMS, 'Testovací klient') == 'Vykaz_prace_august_2026_Testovaci_klient.xlsx'
+    assert xlsx_filename(OD, DO, ITEMS, None) == 'Vykaz_prace_august_2026.xlsx'
+    assert xlsx_filename(OD, DO, ITEMS, '') == 'Vykaz_prace_august_2026.xlsx'
+
+
+def test_filename_falls_back_to_date_range_when_items_span_two_months():
+    multi = ITEMS + [(dt.datetime(2026, 9, 1, 9, 0, tzinfo=TZ), 'X', 1.0, 'y')]
+    assert (xlsx_filename(OD, DO, multi, 'Testovací klient')
+            == 'Vykaz_prace_2026-08-19_2026-09-01_Testovaci_klient.xlsx')
+
+
+def test_filename_falls_back_to_date_range_when_items_empty():
+    assert xlsx_filename(OD, DO, [], None) == 'Vykaz_prace_2026-08-19_2026-09-01.xlsx'
+
+
+def test_filename_diacritic_month_name_is_ascii_slugged():
+    feb_items = [(dt.datetime(2026, 2, 5, 9, 0, tzinfo=TZ), 'X', 1.0, 'y')]
+    od = dt.datetime(2026, 2, 1, tzinfo=TZ)
+    do = dt.datetime(2026, 3, 1, tzinfo=TZ)
+    assert xlsx_filename(od, do, feb_items, None) == 'Vykaz_prace_februar_2026.xlsx'
 
 
 def test_sheet_name_strips_forbidden_chars_and_truncates():
@@ -170,3 +191,10 @@ def test_desc_starting_with_equals_is_text_not_formula():
     c = ws['C5']
     assert c.value == '=HYPERLINK("http://zlo";"klik")'
     assert c.data_type == 's'  # text, nie 'f' (formula)
+
+
+def test_title_and_sheet_fall_back_to_date_range_when_items_span_two_months():
+    multi = ITEMS + [(dt.datetime(2026, 9, 1, 9, 0, tzinfo=TZ), 'X', 1.0, 'y')]
+    ws = _load(items=multi).active
+    assert ws.title == '19.08.2026 → 01.09.2026'
+    assert ws['A1'].value == 'Výkaz práce – 19.08.2026 → 01.09.2026'
