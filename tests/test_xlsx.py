@@ -7,7 +7,7 @@ import io
 
 import openpyxl
 
-from vyuct.xlsx import build_xlsx, xlsx_filename
+from vyuct.xlsx import build_xlsx, xlsx_filename, _sanitize_sheet_name
 
 TZ = dt.timezone(dt.timedelta(hours=2))
 OD = dt.datetime(2026, 8, 19, 10, 0, tzinfo=TZ)
@@ -151,7 +151,22 @@ def test_filename_ascii_safe():
 
 
 def test_sheet_name_strips_forbidden_chars_and_truncates():
-    # zakázané znaky v obdobných hraniciach sa nikdy neobjavia v našom formáte,
-    # ale hárok musí byť vždy <= 31 znakov a bez [ ] : * ? / \
+    # priamy test sanitizéra — každý zakázaný znak ([ ] : * ? / \) → medzera,
+    # výsledok vždy <= 31 znakov
+    raw = 'a[b]c:d*e?f/g\\h' + 'x' * 40
+    out = _sanitize_sheet_name(raw)
+    assert not (set(out) & set('[]:*?/\\'))
+    assert len(out) <= 31
+    # bežný titulok nášho formátu prejde nedotknutý (len orez apostrofov)
     ws = _load().active
-    assert not (set(ws.title) & set(r'[]:*?/\\'))
+    assert not (set(ws.title) & set('[]:*?/\\'))
+
+
+def test_desc_starting_with_equals_is_text_not_formula():
+    # popis zo správy kanála začínajúci '=' NESMIE ožiť ako vzorec v XLSX
+    items = [(dt.datetime(2026, 8, 19, 10, 0, tzinfo=TZ), 'X', 2.0,
+              '=HYPERLINK("http://zlo";"klik")')]
+    ws = _load(items=items).active
+    c = ws['C5']
+    assert c.value == '=HYPERLINK("http://zlo";"klik")'
+    assert c.data_type == 's'  # text, nie 'f' (formula)

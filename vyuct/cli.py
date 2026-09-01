@@ -76,7 +76,10 @@ def main(argv=None):
                      fname, len(items), len(xlsx_bytes))
         if args.dry_run:
             if xlsx_bytes:
-                path = os.path.join(tempfile.gettempdir(), fname)
+                # Súkromný dočasný adresár (mode 0700) — bezpečné voči
+                # symlink-clobberu na viacpoužívateľskom stroji, no s
+                # čitateľným názvom súboru pre kontrolu.
+                path = os.path.join(tempfile.mkdtemp(prefix='vyuct-'), fname)
                 with open(path, 'wb') as fh:
                     fh.write(xlsx_bytes)
                 log.info('DRY-RUN, XLSX uložený do: %s (%d bajtov)', path, len(xlsx_bytes))
@@ -85,7 +88,17 @@ def main(argv=None):
         attachment_ids = None
         if xlsx_bytes:
             attachment_ids = [create_attachment(key, fname, xlsx_bytes)]
-        result = post_message(key, args.channel, body, attachment_ids)
+        try:
+            result = post_message(key, args.channel, body, attachment_ids)
+        except Exception:
+            # Ak sa príloha vytvorila, ale post zlyhal, ostáva na serveri
+            # osirelá ir.attachment (bez res_model/res_id) — zaloguj jej id,
+            # nech je dohľadateľná (settlement je idempotentný, ďalší beh
+            # sa prepočíta z histórie).
+            if attachment_ids:
+                log.error('post_message zlyhal — osirelá ir.attachment id=%s (name=%s)',
+                          attachment_ids[0], fname)
+            raise
         log.info('poslané (%s, príloh=%d): %s → odpoveď: %s', a[0],
                  len(attachment_ids or []), body,
                  json.dumps(result, ensure_ascii=False)[:200])

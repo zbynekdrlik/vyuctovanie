@@ -84,3 +84,37 @@ def test_dry_run_generates_file_and_does_not_post(monkeypatch, caplog):
                 found = tok
     assert found, 'dry-run mal vygenerovať a zalogovať cestu k .xlsx'
     os.remove(found)
+
+
+def _info_action():
+    import datetime as dt
+    tz = dt.timezone(dt.timedelta(hours=2))
+    d = dt.datetime(2026, 8, 25, 20, 0, tzinfo=tz)
+    return ('info', 4.0, [(d, 'Ján Novák', 4.0, 'práca')])
+
+
+def test_info_action_posts_without_attachment(monkeypatch):
+    action = _info_action()
+    cli = _patch_pipeline(monkeypatch, action)
+    calls = {'built': False, 'created': False, 'post_att': 'UNSET'}
+
+    def fake_build(*a, **k):
+        calls['built'] = True
+        return b'X'
+
+    def fake_create(*a, **k):
+        calls['created'] = True
+        return 1
+
+    def fake_post(key, ch, body, attachment_ids=None):
+        calls['post_att'] = attachment_ids
+        return {'ok': 1}
+
+    monkeypatch.setattr(cli, 'build_xlsx', fake_build)
+    monkeypatch.setattr(cli, 'create_attachment', fake_create)
+    monkeypatch.setattr(cli, 'post_message', fake_post)
+    rc = cli.main(['--channel', '993'])
+    assert rc == 0
+    assert calls['built'] is False        # info negeneruje XLSX
+    assert calls['created'] is False      # ani prílohu
+    assert calls['post_att'] is None      # message_post bez attachment_ids

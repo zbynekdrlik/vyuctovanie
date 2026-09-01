@@ -23,6 +23,10 @@ _WHITE = 'FFFFFFFF'
 _CENTER = Alignment(horizontal='center', vertical='center')
 _LEFT = Alignment(horizontal='left', vertical='center')
 
+# Zdieľateľný font dátových buniek (openpyxl štýly sú immutable/zdieľateľné) —
+# jedna inštancia namiesto novej pre každú bunku.
+_DATA_FONT = Font(size=10)
+
 _DATE_FMT = r'yyyy\-mm\-dd'
 _HOURS_FMT = '0.0'
 
@@ -30,10 +34,15 @@ _HOURS_FMT = '0.0'
 _FORBIDDEN_SHEET = set('[]:*?/') | {chr(92)}
 
 
-def _sheet_name(od, do):
-    name = f'{od:%d.%m.} – {do:%d.%m.%Y}'
-    name = ''.join(' ' if ch in _FORBIDDEN_SHEET else ch for ch in name)
+def _sanitize_sheet_name(raw):
+    """Bezpečný názov hárku: zakázané znaky ([ ] : * ? / \\) → medzera,
+    orez apostrofov na okrajoch, max 31 znakov (limit Excelu)."""
+    name = ''.join(' ' if ch in _FORBIDDEN_SHEET else ch for ch in raw)
     return name.strip("'")[:31]
+
+
+def _sheet_name(od, do):
+    return _sanitize_sheet_name(f'{od:%d.%m.} – {do:%d.%m.%Y}')
 
 
 def _ascii_slug(s):
@@ -95,14 +104,19 @@ def build_xlsx(od, do, items, client_name):
         a = ws.cell(row=row, column=1, value=date.date())
         a.number_format = _DATE_FMT
         a.alignment = _CENTER
-        a.font = Font(size=10)
+        a.font = _DATA_FONT
         b = ws.cell(row=row, column=2, value=hours)
         b.number_format = _HOURS_FMT
         b.alignment = _CENTER
-        b.font = Font(size=10)
+        b.font = _DATA_FONT
         c = ws.cell(row=row, column=3, value=desc)
         c.alignment = _LEFT
-        c.font = Font(size=10)
+        c.font = _DATA_FONT
+        # Ochrana proti injektáži vzorca: openpyxl bunku so stringom začínajúcim
+        # '=' uloží ako FORMULU (data_type 'f'). Popis pochádza zo správ kanála,
+        # takže „= …" by v klientskom súbore ožil ako vzorec — vynúť text.
+        if isinstance(desc, str) and desc.startswith('='):
+            c.data_type = 's'
         if zebra:
             for cell in (a, b, c):
                 cell.fill = zebra
