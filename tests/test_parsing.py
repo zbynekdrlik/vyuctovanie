@@ -118,6 +118,39 @@ def test_parse_entries_bare_hour_no_following_lines_stays_empty():
     assert parse_entries('- 2h') == [(2.0, '')]
 
 
+# ---------- #19: pokračovací riadok bez odrážky (word-wrap) sa spája medzerou ----------
+
+def test_parse_entries_wrapped_line_inside_bullet_joins_with_space():
+    text = ('- 4h\n'
+            '- prvá vec — dlhší text ktorý autor\n'
+            '  zalomil na ďalší riadok\n'
+            '- druhá vec')
+    assert parse_entries(text) == [
+        (4.0, 'prvá vec — dlhší text ktorý autor zalomil na ďalší riadok; druhá vec'),
+    ]
+
+
+def test_parse_entries_multiple_bullets_each_with_own_wrap():
+    text = ('- 5h\n'
+            '- prvá položka\n'
+            '  pokračovanie prvej\n'
+            '- druhá položka\n'
+            '  pokračovanie druhej')
+    assert parse_entries(text) == [
+        (5.0, 'prvá položka pokračovanie prvej; druhá položka pokračovanie druhej'),
+    ]
+
+
+def test_parse_entries_continuation_with_no_leading_bullet_at_all_joins_with_space():
+    text = '- 2h\nprvý riadok\ndruhý riadok'
+    assert parse_entries(text) == [(2.0, 'prvý riadok druhý riadok')]
+
+
+def test_parse_entries_bullet_dot_marker_still_starts_new_fragment():
+    text = '- 3h\n• prvá\n• druhá'
+    assert parse_entries(text) == [(3.0, 'prvá; druhá')]
+
+
 # ---------- is_uzavierka ----------
 
 def test_uzavierka_variants():
