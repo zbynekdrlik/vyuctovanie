@@ -71,7 +71,7 @@ def main(argv=None):
         if a[0] == 'settlement':
             _, _total, od, do, items = a
             xlsx_bytes = build_xlsx(od, do, items, CLIENT_NAME)
-            fname = xlsx_filename(od, do, CLIENT_NAME)
+            fname = xlsx_filename(od, do, items, CLIENT_NAME)
             log.info('XLSX vygenerovaný: %s (%d položiek, %d bajtov)',
                      fname, len(items), len(xlsx_bytes))
         if args.dry_run:

@@ -2,7 +2,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from vyuct.render import fmt_num, render
+from vyuct.render import fmt_num, period_label, render
 
 TZ = ZoneInfo('Europe/Bratislava')
 
@@ -116,3 +116,71 @@ def test_render_info_multi_author_detail(monkeypatch):
     assert '(Ján Novák 2 h; Peter Kováč 3 h)' in body
     assert '30 €' not in body
     assert '120 €' not in body
+
+
+# --- period_label + jeho použitie v render() (#23) ---------------------
+
+def test_period_label_single_month_returns_month_name_and_year():
+    items = [
+        (datetime(2026, 8, 12, 10, 0, tzinfo=TZ), 'Ján Novák', 4.0, 'oprava'),
+        (datetime(2026, 8, 30, 9, 0, tzinfo=TZ), 'Peter Kováč', 2.0, 'analýza'),
+    ]
+    od = datetime(2026, 8, 1, 0, 0, tzinfo=TZ)
+    do = datetime(2026, 9, 1, 0, 0, tzinfo=TZ)
+    assert period_label(items, od, do) == 'august 2026'
+
+
+def test_period_label_february_uses_diacritic_month_name():
+    items = [(datetime(2026, 2, 5, 9, 0, tzinfo=TZ), 'Marek', 1.0, '')]
+    od = datetime(2026, 2, 1, 0, 0, tzinfo=TZ)
+    do = datetime(2026, 3, 1, 0, 0, tzinfo=TZ)
+    assert period_label(items, od, do) == 'február 2026'
+
+
+def test_period_label_multi_month_items_fall_back_to_date_range():
+    items = [
+        (datetime(2026, 8, 30, 10, 0, tzinfo=TZ), 'Ján Novák', 4.0, 'oprava'),
+        (datetime(2026, 9, 1, 9, 0, tzinfo=TZ), 'Peter Kováč', 2.0, 'analýza'),
+    ]
+    od = datetime(2026, 8, 12, 0, 0, tzinfo=TZ)
+    do = datetime(2026, 9, 1, 8, 0, tzinfo=TZ)
+    assert period_label(items, od, do) == '12.08.2026 → 01.09.2026'
+
+
+def test_period_label_empty_items_fall_back_to_date_range():
+    od = datetime(2026, 8, 12, 0, 0, tzinfo=TZ)
+    do = datetime(2026, 9, 1, 8, 0, tzinfo=TZ)
+    assert period_label([], od, do) == '12.08.2026 → 01.09.2026'
+
+
+def test_period_label_same_month_number_different_year_not_merged():
+    items = [
+        (datetime(2025, 8, 30, tzinfo=TZ), 'Ján Novák', 1.0, ''),
+        (datetime(2026, 8, 1, tzinfo=TZ), 'Peter Kováč', 2.0, ''),
+    ]
+    od = datetime(2025, 8, 12, 0, 0, tzinfo=TZ)
+    do = datetime(2026, 8, 1, 0, 0, tzinfo=TZ)
+    assert period_label(items, od, do) == '12.08.2025 → 01.08.2026'
+
+
+def test_render_settlement_uses_month_label_when_items_span_one_month():
+    od = datetime(2026, 8, 12, 0, 0, tzinfo=TZ)
+    do = datetime(2026, 9, 1, 8, 0, tzinfo=TZ)
+    items = [
+        (datetime(2026, 8, 12, 10, 0, tzinfo=TZ), 'Ján Novák', 4.0, 'oprava'),
+        (datetime(2026, 8, 20, 9, 0, tzinfo=TZ), 'Peter Kováč', 2.0, 'analýza'),
+    ]
+    body = render(('settlement', 6.0, od, do, items))
+    assert 'obdobie august 2026' in body
+    assert '→' not in body
+
+
+def test_render_settlement_uses_date_range_when_items_span_two_months():
+    od = datetime(2026, 8, 12, 0, 0, tzinfo=TZ)
+    do = datetime(2026, 9, 1, 8, 0, tzinfo=TZ)
+    items = [
+        (datetime(2026, 8, 30, 10, 0, tzinfo=TZ), 'Ján Novák', 4.0, 'oprava'),
+        (datetime(2026, 9, 1, 7, 0, tzinfo=TZ), 'Peter Kováč', 2.0, 'analýza'),
+    ]
+    body = render(('settlement', 6.0, od, do, items))
+    assert 'obdobie 12.08.2026 → 01.09.2026' in body

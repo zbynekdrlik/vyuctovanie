@@ -3,11 +3,52 @@ import html
 
 from .config import SETTLEMENT_MARK, INFO_MARK, rate_for
 
+_MONTHS_SK = (
+    'január', 'február', 'marec', 'apríl', 'máj', 'jún',
+    'júl', 'august', 'september', 'október', 'november', 'december',
+)
+
 
 def fmt_num(x):
     """29.0 → „29", 1.5 → „1,5" (slovenská desatinná čiarka)."""
     s = f'{x:.2f}'.rstrip('0').rstrip('.')
     return s.replace('.', ',')
+
+
+def single_month(items):
+    """(rok, mesiac) ak VŠETKY ``items`` padnú do jedného kalendárneho mesiaca
+    (rovnaký rok aj mesiac); inak ``None`` (prázdne items alebo viac mesiacov).
+
+    Zdieľané medzi :func:`period_label` a `xlsx.xlsx_filename`, aby obe
+    rozhodovali podľa rovnakej explicitnej podmienky namiesto odvodzovania
+    z tvaru vráteného reťazca.
+    """
+    if not items:
+        return None
+    first = items[0][0]
+    year, month = first.year, first.month
+    if all(date.year == year and date.month == month for date, *_ in items):
+        return year, month
+    return None
+
+
+def period_label(items, od, do):
+    """Obdobie vyúčtovania ako čitateľný popisok (#23).
+
+    Keď ``items`` nie je prázdne a VŠETKY položky padnú do jedného kalendárneho
+    mesiaca (rovnaký rok aj mesiac) → ``"<mesiac> <rok>"`` (napr. „august 2026").
+    Inak (položky vo viacerých mesiacoch, alebo prázdne items) → doterajší
+    rozsah dátumov ``od → do`` (uzávierka predošlá → aktuálna).
+
+    Rozhodujú dátumy POLOŽIEK, nie hranice ``od``/``do`` — ``do`` je typicky
+    1. deň nasledujúceho mesiaca (dátum uzávierky), takže rozsah uzávierka→
+    uzávierka formálne vždy prechádza cez prelom mesiaca.
+    """
+    ym = single_month(items)
+    if ym:
+        year, month = ym
+        return f'{_MONTHS_SK[month - 1]} {year}'
+    return f'{od:%d.%m.%Y} → {do:%d.%m.%Y}'
 
 
 def _entry(date, hours, desc):
@@ -36,7 +77,8 @@ def render(action):
             by_author.setdefault(author, []).append((date, hours, desc))
         blocks = ''.join(_person_block(a, e) for a, e in by_author.items())
         eur = sum(sum(h for _, h, _ in e) * rate_for(a) for a, e in by_author.items())
-        return (f'<p><b>💰 {SETTLEMENT_MARK}</b> — obdobie {od:%d.%m.%Y} → {do:%d.%m.%Y}</p>'
+        label = period_label(items, od, do)
+        return (f'<p><b>💰 {SETTLEMENT_MARK}</b> — obdobie {label}</p>'
                 f'{blocks}'
                 f'<p>Spolu odrobené: <b>{fmt_num(total)} h</b> = <b>{fmt_num(eur)} €</b></p>'
                 f'<p>Počítadlo začína odznova — rátajú sa správy za uzávierkou.</p>')

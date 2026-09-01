@@ -13,6 +13,8 @@ import unicodedata
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
+from .render import period_label, single_month
+
 # Farby ako ARGB (alfa FF) — presne ako vo vzorke vlastníka.
 _TITLE_FILL = PatternFill('solid', fgColor='FF1F4E78')
 _HEADER_FILL = PatternFill('solid', fgColor='FF2E75B6')
@@ -41,18 +43,25 @@ def _sanitize_sheet_name(raw):
     return name.strip("'")[:31]
 
 
-def _sheet_name(od, do):
-    return _sanitize_sheet_name(f'{od:%d.%m.} – {do:%d.%m.%Y}')
-
-
 def _ascii_slug(s):
     s = unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode()
     return re.sub(r'[^A-Za-z0-9]+', '_', s).strip('_')
 
 
-def xlsx_filename(od, do, client_name):
-    """ASCII-safe názov súboru: Vykaz_prace_<od>_<do>[_<Klient>].xlsx."""
-    base = f'Vykaz_prace_{od:%Y-%m-%d}_{do:%Y-%m-%d}'
+def xlsx_filename(od, do, items, client_name):
+    """ASCII-safe názov súboru (#23).
+
+    Jeden kalendárny mesiac v ``items`` → ``Vykaz_prace_<mesiac>_<rok>[_<Klient>].xlsx``
+    (napr. ``Vykaz_prace_august_2026_Klient.xlsx``). Inak (viac mesiacov, alebo
+    prázdne items) → doterajší tvar so zarovnaným ISO rozsahom
+    ``Vykaz_prace_<od>_<do>[_<Klient>].xlsx``, aby názov súboru ostal chronologicky
+    triediteľný aj vo fallback prípade.
+    """
+    if single_month(items):
+        base = f'Vykaz_prace_{_ascii_slug(period_label(items, od, do))}'
+    else:
+        # fallback tvar (rozsah dátumov) — ISO forma, nie ascii_slug arrow-labelu
+        base = f'Vykaz_prace_{od:%Y-%m-%d}_{do:%Y-%m-%d}'
     if client_name:
         slug = _ascii_slug(client_name)
         if slug:
@@ -67,14 +76,15 @@ def build_xlsx(od, do, items, client_name):
     chronologicky. ``autor`` sa IGNORUJE — do súboru sa mená nedávajú.
     ``client_name`` None/prázdne → riadok Klient sa vynechá (layout ostáva).
     """
+    label = period_label(items, od, do)  # jedno vyhodnotenie, zdieľané pre titulok aj hárok
     wb = Workbook()
     ws = wb.active
-    ws.title = _sheet_name(od, do)
+    ws.title = _sanitize_sheet_name(label)
 
     # Titulok — merged A1:C1
     ws.merge_cells('A1:C1')
     a1 = ws['A1']
-    a1.value = f'Výkaz práce – {od:%d.%m.%Y} → {do:%d.%m.%Y}'
+    a1.value = f'Výkaz práce – {label}'
     for coord in ('A1', 'B1', 'C1'):
         ws[coord].fill = _TITLE_FILL
     a1.font = Font(bold=True, size=14, color=_WHITE)
