@@ -198,3 +198,18 @@ def test_title_and_sheet_fall_back_to_date_range_when_items_span_two_months():
     ws = _load(items=multi).active
     assert ws.title == '19.08.2026 → 01.09.2026'
     assert ws['A1'].value == 'Výkaz práce – 19.08.2026 → 01.09.2026'
+
+
+def test_title_and_sheet_fall_back_to_date_range_when_items_empty():
+    ws = _load(items=[]).active
+    assert ws.title == '19.08.2026 → 01.09.2026'
+    assert ws['A1'].value == 'Výkaz práce – 19.08.2026 → 01.09.2026'
+
+
+def test_filename_single_month_detection_is_order_independent():
+    # items[0] je referenčný mesiac (podľa docstringu single_month), ale kontrola
+    # je symetrická voči poradiu — zostupné poradie dá rovnaký výsledok.
+    descending = list(reversed(ITEMS))
+    assert (xlsx_filename(OD, DO, descending, 'Testovací klient')
+            == xlsx_filename(OD, DO, ITEMS, 'Testovací klient')
+            == 'Vykaz_prace_august_2026_Testovaci_klient.xlsx')

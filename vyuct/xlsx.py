@@ -43,10 +43,6 @@ def _sanitize_sheet_name(raw):
     return name.strip("'")[:31]
 
 
-def _sheet_name(items, od, do):
-    return _sanitize_sheet_name(period_label(items, od, do))
-
-
 def _ascii_slug(s):
     s = unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode()
     return re.sub(r'[^A-Za-z0-9]+', '_', s).strip('_')
@@ -80,14 +76,15 @@ def build_xlsx(od, do, items, client_name):
     chronologicky. ``autor`` sa IGNORUJE — do súboru sa mená nedávajú.
     ``client_name`` None/prázdne → riadok Klient sa vynechá (layout ostáva).
     """
+    label = period_label(items, od, do)  # jedno vyhodnotenie, zdieľané pre titulok aj hárok
     wb = Workbook()
     ws = wb.active
-    ws.title = _sheet_name(items, od, do)
+    ws.title = _sanitize_sheet_name(label)
 
     # Titulok — merged A1:C1
     ws.merge_cells('A1:C1')
     a1 = ws['A1']
-    a1.value = f'Výkaz práce – {period_label(items, od, do)}'
+    a1.value = f'Výkaz práce – {label}'
     for coord in ('A1', 'B1', 'C1'):
         ws[coord].fill = _TITLE_FILL
     a1.font = Font(bold=True, size=14, color=_WHITE)
