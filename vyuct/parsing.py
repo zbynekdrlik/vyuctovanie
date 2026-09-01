@@ -17,14 +17,37 @@ def to_text(body):
 
 
 def parse_entries(text):
-    """Zoznam (hodiny, popis) zo všetkých riadkov tvaru „- 4h popis"."""
+    """Zoznam (hodiny, popis) zo všetkých riadkov tvaru „- 4h popis".
+
+    Keď hodinový riadok nemá popis na tom istom riadku (napr. holé „- 4h"),
+    popis sa doplní z NASLEDUJÚCICH neprázdnych riadkov správy — až po ďalší
+    hodinový riadok alebo koniec správy (#16): každému sa odstráni vedúce
+    „-"/„–" + whitespace, vnútorný whitespace sa skolabuje na jednu medzeru
+    a jednotlivé riadky sa spoja cez „; ". Prázdne riadky sa preskakujú, ale
+    zber neukončujú. Keď hodinový riadok popis MÁ, nasledujúce riadky sa
+    ďalej ignorujú (nezmenené správanie) — continuation vždy patrí
+    najbližšiemu predchádzajúcemu hodinovému riadku bez popisu.
+    """
     out = []
+    pending = None  # index poslednej pridanej položky čakajúcej na popis
     for line in text.splitlines():
         m = HOUR_RE.match(line)
         if m:
-            out.append((float(m.group(1).replace(',', '.')),
-                        line[m.end():].strip(' \t-–—:;,.')))
-    return out
+            desc = line[m.end():].strip(' \t-–—:;,.')
+            out.append([float(m.group(1).replace(',', '.')), desc])
+            pending = len(out) - 1 if not desc else None
+            continue
+        if pending is None:
+            continue
+        s = line.strip()
+        if not s:
+            continue
+        piece = re.sub(r'\s+', ' ', s.lstrip('-–').strip())
+        if not piece:
+            continue
+        existing = out[pending][1]
+        out[pending][1] = f'{existing}; {piece}' if existing else piece
+    return [(h, d) for h, d in out]
 
 
 def parse_hours(text):

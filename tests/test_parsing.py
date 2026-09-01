@@ -77,6 +77,47 @@ def test_parse_entries_ignores_midline_range():
     assert parse_entries('- Oprava čaká na CI, behy trvajú 1-2 h') == []
 
 
+# ---------- #16: popis z nasledujúcich riadkov, keď je hodinový riadok holý ----------
+
+def test_parse_entries_bare_hour_line_takes_description_from_following_bullets():
+    text = '- 4h\n- prvá vec, ktorá sa robila\n- druhá vec'
+    assert parse_entries(text) == [(4.0, 'prvá vec, ktorá sa robila; druhá vec')]
+
+
+def test_parse_entries_hour_line_with_description_ignores_following_bullets():
+    text = '- 4h oprava webu\n- detail 1\n- detail 2'
+    assert parse_entries(text) == [(4.0, 'oprava webu')]
+
+
+def test_parse_entries_two_bare_hour_lines_each_get_own_continuation():
+    text = '- 2h\ndetail A\n- 3h\ndetail B'
+    assert parse_entries(text) == [(2.0, 'detail A'), (3.0, 'detail B')]
+
+
+def test_parse_entries_bare_hour_line_followed_by_hour_line_with_description():
+    text = '- 2h\n- 3h popis'
+    assert parse_entries(text) == [(2.0, ''), (3.0, 'popis')]
+
+
+def test_parse_entries_person_prefix_line_not_swallowed_as_description():
+    text = 'Meno:\n- 4h\n- prvá vec\n- druhá vec'
+    assert parse_entries(text) == [(4.0, 'prvá vec; druhá vec')]
+
+
+def test_parse_entries_blank_line_inside_continuation_does_not_end_collection():
+    text = '- 4h\n- prvá vec\n\n- druhá vec'
+    assert parse_entries(text) == [(4.0, 'prvá vec; druhá vec')]
+
+
+def test_parse_entries_continuation_collapses_internal_whitespace():
+    text = '- 4h\n- prvá    vec  s  medzerami'
+    assert parse_entries(text) == [(4.0, 'prvá vec s medzerami')]
+
+
+def test_parse_entries_bare_hour_no_following_lines_stays_empty():
+    assert parse_entries('- 2h') == [(2.0, '')]
+
+
 # ---------- is_uzavierka ----------
 
 def test_uzavierka_variants():
