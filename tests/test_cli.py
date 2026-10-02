@@ -122,6 +122,7 @@ def test_info_action_posts_without_attachment(monkeypatch):
 
 def test_reset_until_id_from_config_reaches_decide(monkeypatch, caplog):
     import logging
+
     from vyuct import cli
     seen = {}
 
