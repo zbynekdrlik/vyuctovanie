@@ -28,3 +28,16 @@ def test_rate_for_unknown_author_fails_loudly(monkeypatch):
     monkeypatch.setattr(config, 'RATE_EUR', 0.0)
     with pytest.raises(SystemExit):
         config.rate_for('Neznámy')
+
+
+def test_parse_reset_id():
+    assert config._parse_reset_id('') == 0
+    assert config._parse_reset_id(' 1234 ') == 1234
+    assert config._parse_reset_id('0') == 0
+
+
+def test_parse_reset_id_fails_loudly_on_garbage():
+    for bad in ('abc', '-5', '12.5'):
+        with pytest.raises(SystemExit) as ei:
+            config._parse_reset_id(bad)
+        assert 'VYUCT_RESET_UNTIL_ID' in str(ei.value)
