@@ -39,6 +39,12 @@ takže fix v kóde platí okamžite pre všetkých.
   `VYUCT_CHANNEL_ID`, `VYUCT_RATE_EUR`, voliteľné VYUCT_RATES („Meno=15;Iné Meno=40“ —
   sadzba per osoba, má prednosť pred VYUCT_RATE_EUR), voliteľné `VYUCT_CLIENT_NAME`
   (názov klienta do riadku `Klient:` v XLSX prílohe; ak chýba, riadok sa vynechá)
+- Odpis hodín (zákazník časť hodín nezaplatí): voliteľné `VYUCT_RESET_UNTIL_ID=<id správy>`
+  v env zákazníka — hodiny v správach s `id <=` tejto hodnoty sa nepočítajú (info ani
+  vyúčtovanie), uzávierka pod cutoffom sa ignoruje. Nastav na id správy TESNE PRED prvou
+  položkou, ktorá sa ešte má účtovať; do kanála sa nič neposiela a nič sa nemaže. Po ďalšej
+  reálnej uzávierke + vyúčtovaní je bez účinku (#26). Je to vedomá výnimka z „stav len
+  z histórie kanála“ — beh ju loguje (`odpis aktívny: …`).
 - Nový zákazník: (1) v jeho Odoo vytvor bot používateľa + API kľúč a pozvi bota do
   kanála výkazov; (2) kľúč ulož do súboru (mode 600) a vytvor `~/.config/vyuct/<meno>.env`;
   (3) `systemctl --user enable --now vyuctovanie@<meno>.timer`

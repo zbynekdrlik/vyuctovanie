@@ -4,13 +4,17 @@ import logging
 log = logging.getLogger('vyuctovanie')
 
 
-def decide(msgs, now_local, force_info=False):
+def decide(msgs, now_local, force_info=False, reset_until_id=0):
     """Z obohatených správ rozhodne, čo poslať.
 
     Vráti zoznam akcií: [('settlement', total_h, od, do, items)] alebo
     [('info', total_h, items)]. items = [(dátum, autor, hodiny, popis), ...].
+
+    ``reset_until_id`` (odpis, #26): správy s ``id <= reset_until_id`` sa
+    berú ako uzavreté — ich hodiny sa nepočítajú a uzávierka medzi nimi
+    nevyvolá vyúčtovanie. 0 = vypnuté.
     """
-    uzs = [m for m in msgs if m['uz']]
+    uzs = [m for m in msgs if m['uz'] and m['id'] > reset_until_id]
     last_uz = uzs[-1] if uzs else None
 
     # 1) Uzávierka bez vyúčtovania za ňou → pošli vyúčtovanie hneď.
@@ -18,7 +22,7 @@ def decide(msgs, now_local, force_info=False):
     #    uzávierku — dve uzávierky tesne po sebe tak nezhltnú hodiny
     #    nazbierané pred prvou z nich.
     if last_uz and not any(m['settlement'] and m['id'] > last_uz['id'] for m in msgs):
-        start_id = max((m['id'] for m in msgs if m['settlement']), default=0)
+        start_id = max([m['id'] for m in msgs if m['settlement']] + [reset_until_id])
         period = [m for m in msgs if start_id < m['id'] < last_uz['id']]
         total = sum(m['hours'] for m in period)
         od = period[0]['date'] if period else last_uz['date']
@@ -27,7 +31,7 @@ def decide(msgs, now_local, force_info=False):
         return [('settlement', total, od, last_uz['date'], items)]
 
     # 2) Večerné priebežné info — max 1× denne, len ak pribudli nové hodiny.
-    period_start = last_uz['id'] if last_uz else 0
+    period_start = max(last_uz['id'] if last_uz else 0, reset_until_id)
     period = [m for m in msgs if m['id'] > period_start]
     total = sum(m['hours'] for m in period)
     items = [(m['date'], m['author'], h, d)

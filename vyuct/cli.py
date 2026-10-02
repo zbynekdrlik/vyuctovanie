@@ -9,7 +9,7 @@ from datetime import datetime
 
 from urllib.parse import urlparse
 
-from .config import CHANNEL_ID, CLIENT_NAME, TZ, URL, validate
+from .config import CHANNEL_ID, CLIENT_NAME, RESET_UNTIL_ID, TZ, URL, validate
 from .parsing import enrich
 from .logic import decide
 from .render import render, fmt_num
@@ -59,7 +59,10 @@ def main(argv=None):
              sum(1 for m in msgs if m['uz']),
              sum(1 for m in msgs if m['settlement'] or m['info']))
 
-    actions = decide(msgs, now, force_info=args.force_info)
+    if RESET_UNTIL_ID:
+        log.info('odpis aktívny: hodiny v správach s id <= %s sa nepočítajú (VYUCT_RESET_UNTIL_ID)',
+                 RESET_UNTIL_ID)
+    actions = decide(msgs, now, force_info=args.force_info, reset_until_id=RESET_UNTIL_ID)
     if not actions:
         log.info('nič na poslanie.')
         return 0

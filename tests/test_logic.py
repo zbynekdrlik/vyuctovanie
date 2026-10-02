@@ -5,6 +5,8 @@ from zoneinfo import ZoneInfo
 
 from vyuct.logic import decide
 from vyuct.parsing import enrich
+from vyuct.render import render
+from vyuct.xlsx import build_xlsx, xlsx_filename
 
 TZ = ZoneInfo('Europe/Bratislava')
 BOT = 1000
@@ -202,3 +204,105 @@ def test_decide_logs_reason_when_no_info(caplog):
         actions = decide(msgs, datetime(2026, 8, 19, 10, 0, tzinfo=tz))
     assert actions == []
     assert any('info sa neposiela' in r.getMessage() for r in caplog.records)
+
+
+# --- Odpis hodín cez reset_until_id (#26) ---------------------------------
+
+def test_reset_info_counts_only_after_cutoff():
+    msgs = enrich([
+        mk(1, '- 4h odpisana praca', MAREK, '2026-08-12 10:00:00'),
+        mk(2, '- 3h odpisana praca', ZBYNEK, '2026-08-13 10:00:00'),
+        mk(3, '- 2h platena praca', ZBYNEK, '2026-08-17 09:00:00'),
+        mk(4, '- 1h platena praca', ZBYNEK, '2026-08-17 10:00:00'),
+    ], BOT)
+    actions = decide(msgs, ts(10, 0), force_info=True, reset_until_id=2)
+    assert len(actions) == 1
+    _, total, items = actions[0]
+    assert total == 3
+    assert [i[3] for i in items] == ['platena praca', 'platena praca']
+
+
+def test_reset_cutoff_after_last_uzavierka_overrides_period_start():
+    msgs = enrich([
+        mk(1, '- 4h stara praca'),
+        mk(2, 'uzavierka', ZBYNEK),
+        mk(3, '<p>💰 VYÚČTOVANIE — obdobie</p>', [BOT, 'Automatizacie']),
+        mk(4, '- 5h odpisana praca'),
+        mk(5, '- 2h platena praca', ZBYNEK),
+    ], BOT)
+    actions = decide(msgs, ts(10, 0), force_info=True, reset_until_id=4)
+    assert actions[0][0] == 'info'
+    assert actions[0][1] == 2
+
+
+def test_reset_all_hours_written_off_sends_no_info():
+    msgs = enrich([mk(1, '- 4h odpisana praca'), mk(2, '- 2h odpisana praca')], BOT)
+    assert decide(msgs, ts(10, 0), force_info=True, reset_until_id=2) == []
+    assert decide(msgs, ts(20, 5), reset_until_id=2) == []
+
+
+def test_reset_settlement_window_starts_after_cutoff():
+    msgs = enrich([
+        mk(1, '- 4h stara praca', MAREK, '2026-08-01 10:00:00'),
+        mk(2, 'uzavierka', ZBYNEK, '2026-08-01 11:00:00'),
+        mk(3, '<p>💰 VYÚČTOVANIE — obdobie</p>', [BOT, 'Automatizacie'], '2026-08-01 12:00:00'),
+        mk(4, '- 7h odpisana praca', MAREK, '2026-08-05 10:00:00'),
+        mk(5, '- 2h platena praca', ZBYNEK, '2026-08-20 10:00:00'),
+        mk(6, '- 1h platena praca', MAREK, '2026-08-21 10:00:00'),
+        mk(7, 'uzavierka', ZBYNEK, '2026-09-01 09:00:00'),
+    ], BOT)
+    actions = decide(msgs, ts(10, 0), reset_until_id=4)
+    assert len(actions) == 1
+    kind, total, od, do, items = actions[0]
+    assert kind == 'settlement'
+    assert total == 3
+    assert od == msgs[4]['date']       # obdobie začína až za cutoffom
+    assert do == msgs[6]['date']
+    assert [(i[1], i[2]) for i in items] == [('Peter Kováč', 2.0), ('Ján Novák', 1.0)]
+
+
+def test_reset_ignores_uzavierka_at_or_before_cutoff():
+    # Neuhradená uzávierka, ktorá padne pod odpis, nesmie vyvolať vyúčtovanie.
+    msgs = enrich([
+        mk(1, '- 4h odpisana praca'),
+        mk(2, 'uzavierka', ZBYNEK),
+        mk(3, '- 2h platena praca', ZBYNEK),
+    ], BOT)
+    actions = decide(msgs, ts(10, 0), force_info=True, reset_until_id=2)
+    assert len(actions) == 1
+    assert actions[0][0] == 'info'
+    assert actions[0][1] == 2
+
+
+def test_reset_zero_keeps_existing_behaviour():
+    msgs = enrich([mk(1, '- 4h praca'), mk(2, 'uzavierka', ZBYNEK)], BOT)
+    assert decide(msgs, ts(10, 0), reset_until_id=0) == decide(msgs, ts(10, 0))
+
+
+def test_reset_cutoff_older_than_last_settlement_has_no_effect():
+    msgs = enrich([
+        mk(1, '- 4h stara praca'),
+        mk(2, 'uzavierka', ZBYNEK),
+        mk(3, '<p>💰 VYÚČTOVANIE — obdobie</p>', [BOT, 'Automatizacie']),
+        mk(4, '- 2h nova praca'),
+        mk(5, 'uzavierka', ZBYNEK),
+    ], BOT)
+    actions = decide(msgs, ts(10, 0), reset_until_id=1)
+    assert actions[0][0] == 'settlement'
+    assert actions[0][1] == 2
+
+
+def test_reset_uzavierka_with_empty_window_renders_zero_settlement():
+    # Uzávierka hneď za cutoffom bez nových hodín → poctivé 0-h vyúčtovanie,
+    # ktoré prejde renderom aj XLSX bez pádu (prázdne items).
+    msgs = enrich([
+        mk(1, '- 4h odpisana praca', MAREK, '2026-08-05 10:00:00'),
+        mk(2, 'uzavierka', ZBYNEK, '2026-09-01 09:00:00'),
+    ], BOT)
+    actions = decide(msgs, ts(10, 0), reset_until_id=1)
+    assert len(actions) == 1
+    kind, total, od, do, items = actions[0]
+    assert (kind, total, items) == ('settlement', 0, [])
+    assert '0 h' in render(actions[0])
+    assert build_xlsx(od, do, items, None)[:2] == b'PK'
+    assert xlsx_filename(od, do, items, None).endswith('.xlsx')

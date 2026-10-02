@@ -25,7 +25,7 @@ def _patch_pipeline(monkeypatch, action):
     monkeypatch.setattr(cli, 'bot_partner_id', lambda key: 1)
     monkeypatch.setattr(cli, 'fetch_messages', lambda key, ch: [])
     monkeypatch.setattr(cli, 'enrich', lambda raw, pid: [])
-    monkeypatch.setattr(cli, 'decide', lambda msgs, now, force_info=False: [action])
+    monkeypatch.setattr(cli, 'decide', lambda msgs, now, force_info=False, **kw: [action])
     return cli
 
 
@@ -118,3 +118,22 @@ def test_info_action_posts_without_attachment(monkeypatch):
     assert calls['built'] is False        # info negeneruje XLSX
     assert calls['created'] is False      # ani prílohu
     assert calls['post_att'] is None      # message_post bez attachment_ids
+
+
+def test_reset_until_id_from_config_reaches_decide(monkeypatch, caplog):
+    import logging
+
+    from vyuct import cli
+    seen = {}
+
+    def fake_decide(msgs, now, force_info=False, reset_until_id=0):
+        seen['reset'] = reset_until_id
+        return []
+
+    _patch_pipeline(monkeypatch, None)
+    monkeypatch.setattr(cli, 'decide', fake_decide)
+    monkeypatch.setattr(cli, 'RESET_UNTIL_ID', 4242)
+    caplog.set_level(logging.INFO, logger='vyuctovanie')
+    assert cli.main(['--channel', '991']) == 0
+    assert seen['reset'] == 4242
+    assert 'odpis' in caplog.text and '4242' in caplog.text

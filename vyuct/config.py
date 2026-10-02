@@ -1,5 +1,6 @@
 """Konfigurácia (env-first; zákaznícke hodnoty žijú MIMO repo v ~/.config/vyuct/<meno>.env)."""
 import os
+import re
 from zoneinfo import ZoneInfo
 
 
@@ -17,6 +18,16 @@ def _parse_rates(raw):
     return out
 
 
+def _parse_reset_id(raw):
+    """VYUCT_RESET_UNTIL_ID → int ≥ 0 (prázdne = 0 = odpis vypnutý); inak SystemExit."""
+    raw = raw.strip()
+    if not raw:
+        return 0
+    if not re.fullmatch(r'[0-9]+', raw):
+        raise SystemExit(f'VYUCT_RESET_UNTIL_ID: „{raw}" nie je id správy (celé číslo ≥ 0).')
+    return int(raw)
+
+
 URL = os.environ.get('ODOO_URL', '')
 DB = os.environ.get('ODOO_DB', 'odoo')
 KEY_FILE = os.path.expanduser(os.environ.get('ODOO_KEY_FILE', ''))
@@ -25,6 +36,8 @@ CHANNEL_ID = int(os.environ.get('VYUCT_CHANNEL_ID', '0'))
 RATE_EUR = float(os.environ.get('VYUCT_RATE_EUR', '0'))
 RATES = _parse_rates(os.environ.get('VYUCT_RATES', ''))
 CLIENT_NAME = os.environ.get('VYUCT_CLIENT_NAME', '') or None
+# Odpis (#26): hodiny v správach s id ≤ RESET_UNTIL_ID sa nepočítajú nikam.
+RESET_UNTIL_ID = _parse_reset_id(os.environ.get('VYUCT_RESET_UNTIL_ID', ''))
 TZ = ZoneInfo('Europe/Bratislava')
 SETTLEMENT_MARK = 'VYÚČTOVANIE'
 INFO_MARK = 'Priebežné info'
