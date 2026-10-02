@@ -5,6 +5,8 @@ from zoneinfo import ZoneInfo
 
 from vyuct.logic import decide
 from vyuct.parsing import enrich
+from vyuct.render import render
+from vyuct.xlsx import build_xlsx, xlsx_filename
 
 TZ = ZoneInfo('Europe/Bratislava')
 BOT = 1000
@@ -288,3 +290,19 @@ def test_reset_cutoff_older_than_last_settlement_has_no_effect():
     actions = decide(msgs, ts(10, 0), reset_until_id=1)
     assert actions[0][0] == 'settlement'
     assert actions[0][1] == 2
+
+
+def test_reset_uzavierka_with_empty_window_renders_zero_settlement():
+    # Uzávierka hneď za cutoffom bez nových hodín → poctivé 0-h vyúčtovanie,
+    # ktoré prejde renderom aj XLSX bez pádu (prázdne items).
+    msgs = enrich([
+        mk(1, '- 4h odpisana praca', MAREK, '2026-08-05 10:00:00'),
+        mk(2, 'uzavierka', ZBYNEK, '2026-09-01 09:00:00'),
+    ], BOT)
+    actions = decide(msgs, ts(10, 0), reset_until_id=1)
+    assert len(actions) == 1
+    kind, total, od, do, items = actions[0]
+    assert (kind, total, items) == ('settlement', 0, [])
+    assert '0 h' in render(actions[0])
+    assert build_xlsx(od, do, items, None)[:2] == b'PK'
+    assert xlsx_filename(od, do, items, None).endswith('.xlsx')
